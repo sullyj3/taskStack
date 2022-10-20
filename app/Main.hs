@@ -13,6 +13,7 @@ import System.IO
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
+import Control.Monad
 
 main :: IO ()
 main = do
@@ -23,6 +24,7 @@ main = do
     ["pop"] -> pop
     ["done"] -> pop
     ["list"] -> list
+    ["clear"] -> clear
     _ -> do
       putStrLn "uhh what?"
 
@@ -86,3 +88,13 @@ list = do
   case contents of
     "" -> alertNoTasks
     _  -> putStr contents
+
+clear :: IO ()
+clear = do
+  fp <- taskStackFilePath
+  exists <- doesFileExist fp
+  when exists $ do
+    putStrLn $ "Are you sure you want to delete `" <> fp <> "`? (Y/n)"
+    line <- getLine
+    when (line `elem` ["Y","y",""]) $ 
+      removeFile fp
