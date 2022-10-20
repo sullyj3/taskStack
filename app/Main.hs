@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 module Main where
 import System.Environment (getArgs)
 import Data.Foldable
@@ -14,11 +15,11 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Control.Monad
+import Control.Monad.Extra (whenM, ifM, unlessM)
 
 main :: IO ()
 main = do
-  args <- getArgs
-  case args of
+  getArgs >>= \case
     [] -> peek
     "push" : rest -> push (T.unwords $ T.pack <$> rest)
     ["peek"] -> peek
@@ -45,8 +46,8 @@ ensureDataDirExists = do
   createDirectoryIfMissing True dirPath
   pure dirPath
 
-taskStackFilePath :: IO FilePath
-taskStackFilePath = XDG.getUserDataFile "taskStack" "taskStack"
+taskStackFilePath :: FilePath
+taskStackFilePath = ".taskStack"
 
 push :: Text -> IO ()
 push task 
@@ -54,48 +55,61 @@ push task
       putStrLn "No task description provided!"
       exitFailure
   | otherwise = do
-      ensureDataDirExists
-      fp <- taskStackFilePath
-      T.appendFile fp $ task <> "\n"
+      unlessM (doesFileExist taskStackFilePath)
+              (putStrLn $ 
+                "No `./" <> taskStackFilePath <>"` found in current directory, creating one now.")
+      T.appendFile taskStackFilePath $ task <> "\n"
+      putStrLn "Task added."
 
 alertNoTasks = putStrLn "There are no tasks in the task stack!"
+alertNoTaskFile = putStrLn $ "No `./" <> taskStackFilePath <>"` found in current directory."
 
 -- todo handle no file
 peek :: IO ()
 peek = do
-  fp <- taskStackFilePath
-  ls <- T.lines <$> T.readFile fp
-
-  case ls of
-    -- file exists, but is empty
-    [] -> alertNoTasks
-    ls -> T.putStrLn $ last ls
+  ifM (doesFileExist taskStackFilePath)
+    do
+      ls <- T.lines <$> T.readFile taskStackFilePath
+      case ls of
+        -- file exists, but is empty
+        [] -> alertNoTasks
+        ls -> T.putStrLn $ last ls
+    do
+      alertNoTaskFile
+      exitFailure
 
 -- todo handle no file
 pop :: IO ()
 pop = do 
-  fp <- taskStackFilePath
-  ls <- T.lines <$> T.readFile fp
+  ls <- T.lines <$> T.readFile taskStackFilePath
   case unsnoc ls of
     Nothing -> alertNoTasks
     Just (initLines, lastLine) -> do
-      T.writeFile fp $ T.unlines initLines
+      T.writeFile taskStackFilePath $ T.unlines initLines
       T.putStrLn $ "Task completed: " <> lastLine
+      case initLines of
+        [] -> do
+          putStrLn $ "That was the last one, deleting `./" <> taskStackFilePath <> "`."
+          removeFile taskStackFilePath
+        _ -> pure ()
   
 list :: IO ()
 list = do
-  fp <- taskStackFilePath
-  contents <- readFile fp
+  contents <- readFile taskStackFilePath
   case contents of
     "" -> alertNoTasks
     _  -> putStr contents
 
 clear :: IO ()
-clear = do
-  fp <- taskStackFilePath
-  exists <- doesFileExist fp
-  when exists $ do
-    putStrLn $ "Are you sure you want to delete `" <> fp <> "`? (Y/n)"
-    line <- getLine
-    when (line `elem` ["Y","y",""]) $ 
-      removeFile fp
+clear = ifM (doesFileExist taskStackFilePath) 
+            (whenM shouldDelete $ removeFile taskStackFilePath)
+            alertNoTaskFile
+  where shouldDelete = do
+          isNonEmpty <- not . null <$> readFile taskStackFilePath
+          if isNonEmpty
+            then do
+              putStr $ "Are you sure you want to delete `./" <> taskStackFilePath <> "`? (Y/n)"
+              hFlush stdout
+              line <- getLine
+              pure (line `elem` ["Y","y",""])
+            else pure True
