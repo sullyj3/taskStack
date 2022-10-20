@@ -7,6 +7,7 @@ Do other people have this problem? Maybe I have ADHD. Maybe this program is only
 
 This is not exactly a todo list. You are only ever working on one task at a time. 
 However, that task may be composed of subtasks, which may be composed of subtasks, etc
+The goal is to eliminate the distraction of thinking about tasks other than the current one.
 
 This tool is for remembering the specific subtask you're working on, and how it relates to your higher level goal.
 
