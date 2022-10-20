@@ -1,11 +1,17 @@
 # taskStack
 
-A program for remembering what the hell you were doing while under heavy cognitive load
+A program for remembering what the hell you're doing while under heavy 
+cognitive load (eg. because you're programming)
+
+Do other people have this problem? Maybe I have ADHD. Maybe this program is only for people with ADHD. I don't know.
 
 This is not a todo list. You are only ever working on one task at a time. 
 However, that task may be composed of subtasks, which may be composed of subtasks, etc
 
 This tool is for remembering the specific subtask you're working on, and how it relates to your higher level goal.
+
+A taskStack should be considered transient. It's about capturing the state of a session, rather
+than long term strategic planning. However, it may be useful to re-establish context when coming back to a project after some time away.
 
 ## Example usage
 
