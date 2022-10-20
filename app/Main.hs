@@ -19,6 +19,7 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
+    [] -> peek
     "push" : rest -> push (T.unwords $ T.pack <$> rest)
     ["peek"] -> peek
     ["pop"] -> pop
