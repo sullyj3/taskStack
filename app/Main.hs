@@ -99,7 +99,8 @@ pop = do
         [] -> do
           putStrLn $ "That was the last one, deleting `./" <> taskStackFilePath <> "`."
           removeFile taskStackFilePath
-        _ -> pure ()
+        (_:_) -> let newTop = last initLines
+                  in T.putStrLn $ "Current task: " <> newTop
   
 list :: IO ()
 list = do
