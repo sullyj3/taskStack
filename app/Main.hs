@@ -24,17 +24,17 @@ parseCommand = \case
   [] -> Just Peek
   "push" : rest -> Just $ Push (T.unwords $ T.pack <$> rest)
   ["peek"] -> Just Peek
-  ["pop"] -> Just Pop
-  ["done"] -> Just Pop
-  ["list"] -> Just List
-  ["l"] -> Just List
   ["clear"] -> Just Clear
+  [c] | c `elem` ["pop", "done"] -> Just Pop
+      | c `elem` ["list", "l"] -> Just List
   _ -> Nothing
 
 main :: IO ()
 main = do
   mcmd <- parseCommand <$> getArgs
-  maybe (putStrLn "uhh what?") handleCommand mcmd
+  case mcmd of
+    Nothing -> putStrLn "uhh what?"
+    Just cmd -> handleCommand cmd
   where
     handleCommand = \case
       Push t -> push t
@@ -44,13 +44,8 @@ main = do
       Clear -> clear
 
 -- TODO: tstk edit
--- TODO: `tstk l` for list etc
-
--- TODO actually this might be more useful if it's directory local, rather than xdg?
--- that way you can have per project tasks you're working on, and come back and
--- re-establish context later
+-- TODO
 -- we could have it search up the tree in case there's not a file in the current directory
--- the last pop should delete the file, as should clear
 
 -- produce the filepath to the tagstack file, ensuring that the file exists
 ensureDataDirExists :: IO FilePath
