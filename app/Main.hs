@@ -17,7 +17,9 @@ import Data.Text.IO qualified as T
 import Control.Monad
 import Control.Monad.Extra (whenM, ifM, unlessM)
 
+
 data Command = Push Text | Peek | Pop | List | Clear
+
 
 parseCommand :: [String] -> Maybe Command
 parseCommand = \case
@@ -28,6 +30,7 @@ parseCommand = \case
   [c] | c `elem` ["pop", "done"] -> Just Pop
       | c `elem` ["list", "l"] -> Just List
   _ -> Nothing
+
 
 main :: IO ()
 main = do
@@ -47,15 +50,10 @@ main = do
 -- TODO
 -- we could have it search up the tree in case there's not a file in the current directory
 
--- produce the filepath to the tagstack file, ensuring that the file exists
-ensureDataDirExists :: IO FilePath
-ensureDataDirExists = do
-  dirPath <- XDG.getUserDataDir "taskStack"
-  createDirectoryIfMissing True dirPath
-  pure dirPath
 
 taskStackFilePath :: FilePath
 taskStackFilePath = ".taskStack"
+
 
 push :: Text -> IO ()
 push task 
@@ -69,26 +67,31 @@ push task
       T.appendFile taskStackFilePath $ task <> "\n"
       putStrLn "Task added."
 
+
+peek :: IO ()
+peek = do
+  exitIfNoTaskFile
+  ls <- T.lines <$> T.readFile taskStackFilePath
+  case ls of
+    -- file exists, but is empty
+    [] -> alertNoTasks
+    ls -> T.putStrLn $ last ls
+
+
+-- Alerts the users and exists if task file is not present
+exitIfNoTaskFile :: IO ()
+exitIfNoTaskFile =
+  unlessM (doesFileExist taskStackFilePath)
+          (alertNoTaskFile >> exitFailure)
+
+
 alertNoTasks = putStrLn "There are no tasks in the task stack!"
 alertNoTaskFile = putStrLn $ "No `./" <> taskStackFilePath <>"` found in current directory."
 
--- todo handle no file
-peek :: IO ()
-peek = do
-  ifM (doesFileExist taskStackFilePath)
-    do
-      ls <- T.lines <$> T.readFile taskStackFilePath
-      case ls of
-        -- file exists, but is empty
-        [] -> alertNoTasks
-        ls -> T.putStrLn $ last ls
-    do
-      alertNoTaskFile
-      exitFailure
 
--- todo handle no file
 pop :: IO ()
 pop = do 
+  exitIfNoTaskFile
   ls <- T.lines <$> T.readFile taskStackFilePath
   case unsnoc ls of
     Nothing -> alertNoTasks
@@ -101,24 +104,28 @@ pop = do
           removeFile taskStackFilePath
         (_:_) -> let newTop = last initLines
                   in T.putStrLn $ "Current task: " <> newTop
+
   
 list :: IO ()
 list = do
+  exitIfNoTaskFile
   contents <- readFile taskStackFilePath
   case contents of
     "" -> alertNoTasks
     _  -> putStr contents
 
+
 clear :: IO ()
-clear = ifM (doesFileExist taskStackFilePath) 
-            (whenM shouldDelete $ removeFile taskStackFilePath)
-            alertNoTaskFile
-  where shouldDelete = do
-          isNonEmpty <- not . null <$> readFile taskStackFilePath
-          if isNonEmpty
-            then do
-              putStr $ "Are you sure you want to delete `./" <> taskStackFilePath <> "`? (Y/n)"
-              hFlush stdout
-              line <- getLine
-              pure (line `elem` ["Y","y",""])
-            else pure True
+clear = do
+  exitIfNoTaskFile
+  whenM shouldDelete $ removeFile taskStackFilePath
+  where 
+    shouldDelete = do
+      isNonEmpty <- not . null <$> readFile taskStackFilePath
+      if isNonEmpty
+        then do
+          putStr $ "Are you sure you want to delete `./" <> taskStackFilePath <> "`? (Y/n)"
+          hFlush stdout
+          line <- getLine
+          pure (line `elem` ["Y","y",""])
+        else pure True
