@@ -17,18 +17,31 @@ import Data.Text.IO qualified as T
 import Control.Monad
 import Control.Monad.Extra (whenM, ifM, unlessM)
 
+data Command = Push Text | Peek | Pop | List | Clear
+
+parseCommand :: [String] -> Maybe Command
+parseCommand = \case
+  [] -> Just Peek
+  "push" : rest -> Just $ Push (T.unwords $ T.pack <$> rest)
+  ["peek"] -> Just Peek
+  ["pop"] -> Just Pop
+  ["done"] -> Just Pop
+  ["list"] -> Just List
+  ["l"] -> Just List
+  ["clear"] -> Just Clear
+  _ -> Nothing
+
 main :: IO ()
 main = do
-  getArgs >>= \case
-    [] -> peek
-    "push" : rest -> push (T.unwords $ T.pack <$> rest)
-    ["peek"] -> peek
-    ["pop"] -> pop
-    ["done"] -> pop
-    ["list"] -> list
-    ["clear"] -> clear
-    _ -> do
-      putStrLn "uhh what?"
+  mcmd <- parseCommand <$> getArgs
+  maybe (putStrLn "uhh what?") handleCommand mcmd
+  where
+    handleCommand = \case
+      Push t -> push t
+      Peek -> peek
+      Pop -> pop
+      List -> list
+      Clear -> clear
 
 -- TODO: tstk edit
 -- TODO: `tstk l` for list etc
