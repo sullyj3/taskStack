@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 module Main where
-import System.Environment (getArgs)
+import System.Environment (getArgs, lookupEnv)
 import Data.Foldable
 
 import System.Directory
@@ -16,9 +16,11 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Control.Monad
 import Control.Monad.Extra (whenM, ifM, unlessM)
+import System.Process (callCommand)
+import Data.Maybe (fromMaybe)
 
 
-data Command = Push Text | Peek | Pop | List | Clear
+data Command = Push Text | Peek | Pop | List | Clear | Edit
 
 
 parseCommand :: [String] -> Maybe Command
@@ -29,6 +31,7 @@ parseCommand = \case
   ["clear"] -> Just Clear
   [c] | c `elem` ["pop", "done"] -> Just Pop
       | c `elem` ["list", "l"] -> Just List
+      | c `elem` ["edit", "e"] -> Just Edit
   _ -> Nothing
 
 
@@ -45,10 +48,13 @@ main = do
       Pop -> pop
       List -> list
       Clear -> clear
+      Edit -> edit
 
--- TODO: tstk edit
--- TODO
--- we could have it search up the tree in case there's not a file in the current directory
+edit :: IO ()
+edit = do
+  mEditor <- lookupEnv "EDITOR"
+  let editor = fromMaybe "vi" mEditor
+  callCommand $ editor <> " .taskStack"
 
 
 taskStackFilePath :: FilePath
