@@ -22,12 +22,12 @@ import System.Process (callCommand)
 import Data.Maybe (fromMaybe)
 
 
-data Command = Help | Push Text | Peek | Pop | List | Clear | Edit
+data Command = Help | Push Text | Peek | Pop | List | Clear | Edit | BareInvocation
 
 
 parseCommand :: [String] -> Maybe Command
 parseCommand = \case
-  [] -> Just Peek
+  [] -> Just BareInvocation
   "push" : rest -> Just $ Push (T.unwords $ T.pack <$> rest)
   ["peek"] -> Just Peek
   ["clear"] -> Just Clear
@@ -48,14 +48,18 @@ main = do
     handleCommand = \case
       Help -> printUsage
       Push t -> push t
-      Peek -> peek
+      Peek -> peek DontPrintUsage
       Pop -> pop
       List -> list
       Clear -> clear
       Edit -> edit
+      BareInvocation -> peek PrintUsage
 
 printUsage :: IO ()
-printUsage = putStrLn "Usage: taskstack [push <task> | peek | pop | list | clear | edit]"
+printUsage = putStrLn $ 
+  "Usage: tstk [push <task> | peek | pop | list | clear | edit]" <>
+  "\n\n" <>
+  "A bare invocation of `tstk` is equivalent to `tstk peek`."
 
 edit :: IO ()
 edit = do
@@ -80,31 +84,40 @@ push task
       T.appendFile taskStackFilePath $ task <> "\n"
       putStrLn "Task added."
 
+-- whether to print usage if task file is not present
+data ShouldPrintUsage = PrintUsage | DontPrintUsage
+  deriving (Eq)
 
-peek :: IO ()
-peek = do
-  exitIfNoTaskFile
+peek :: ShouldPrintUsage -> IO ()
+peek shouldPrintUsage = do
+  exitIfNoTaskFile shouldPrintUsage
   ls <- T.lines <$> T.readFile taskStackFilePath
   case ls of
     -- file exists, but is empty
     [] -> alertNoTasks
     ls -> T.putStrLn $ last ls
 
-
 -- Alerts the users and exists if task file is not present
-exitIfNoTaskFile :: IO ()
-exitIfNoTaskFile =
+exitIfNoTaskFile :: ShouldPrintUsage -> IO ()
+exitIfNoTaskFile shouldPrintUsage = do
   unlessM (doesFileExist taskStackFilePath)
-          (alertNoTaskFile >> exitFailure)
+          do
+            alertNoTaskFile 
+            when (shouldPrintUsage == PrintUsage) do
+              putStrLn ""
+              printUsage
+            exitFailure
 
 
 alertNoTasks = putStrLn "There are no tasks in the task stack!"
-alertNoTaskFile = putStrLn $ "No `./" <> taskStackFilePath <>"` found in current directory."
+alertNoTaskFile = putStrLn $ 
+  "No `./" <> taskStackFilePath <>"` found in current directory.\n" <>
+  "To create one, run `tstk push <task>`, or `tstk edit` to edit it manually."
 
 
 pop :: IO ()
 pop = do 
-  exitIfNoTaskFile
+  exitIfNoTaskFile DontPrintUsage
   ls <- T.lines <$> T.readFile taskStackFilePath
   case unsnoc ls of
     Nothing -> alertNoTasks
@@ -121,7 +134,7 @@ pop = do
   
 list :: IO ()
 list = do
-  exitIfNoTaskFile
+  exitIfNoTaskFile DontPrintUsage
   contents <- readFile taskStackFilePath
   case contents of
     "" -> alertNoTasks
@@ -130,7 +143,7 @@ list = do
 
 clear :: IO ()
 clear = do
-  exitIfNoTaskFile
+  exitIfNoTaskFile DontPrintUsage
   whenM shouldDelete $ removeFile taskStackFilePath
   where 
     shouldDelete = do
