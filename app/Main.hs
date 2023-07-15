@@ -1,6 +1,8 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Replace case with maybe" #-}
 module Main where
 import System.Environment (getArgs, lookupEnv)
 import Data.Foldable
@@ -20,7 +22,7 @@ import System.Process (callCommand)
 import Data.Maybe (fromMaybe)
 
 
-data Command = Push Text | Peek | Pop | List | Clear | Edit
+data Command = Help | Push Text | Peek | Pop | List | Clear | Edit
 
 
 parseCommand :: [String] -> Maybe Command
@@ -29,7 +31,8 @@ parseCommand = \case
   "push" : rest -> Just $ Push (T.unwords $ T.pack <$> rest)
   ["peek"] -> Just Peek
   ["clear"] -> Just Clear
-  [c] | c `elem` ["pop", "done"] -> Just Pop
+  [c] | c `elem` ["help", "--help"] -> Just Help
+      | c `elem` ["pop", "done"] -> Just Pop
       | c `elem` ["list", "l"] -> Just List
       | c `elem` ["edit", "e"] -> Just Edit
   _ -> Nothing
@@ -39,16 +42,20 @@ main :: IO ()
 main = do
   mcmd <- parseCommand <$> getArgs
   case mcmd of
-    Nothing -> putStrLn "uhh what?"
+    Nothing -> printUsage
     Just cmd -> handleCommand cmd
   where
     handleCommand = \case
+      Help -> printUsage
       Push t -> push t
       Peek -> peek
       Pop -> pop
       List -> list
       Clear -> clear
       Edit -> edit
+
+printUsage :: IO ()
+printUsage = putStrLn "Usage: taskstack [push <task> | peek | pop | list | clear | edit]"
 
 edit :: IO ()
 edit = do
